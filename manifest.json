@@ -8,7 +8,7 @@
     "activeTab"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "https://*.courtreserve.com/*"
   ],
   "action": {
     "default_popup": "popup.html"
