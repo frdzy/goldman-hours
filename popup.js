@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
-  var button = document.getElementById('myButton');
-  button.addEventListener('click', function() {
-    alert('Button clicked!');
+  const toggleButton = document.getElementById('toggleDebugger');
+  toggleButton.addEventListener('click', async () => {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    chrome.runtime.sendMessage({type: 'TOGGLE_DEBUGGER', tabId: tab.id});
   });
 });

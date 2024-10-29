@@ -1,10 +1,13 @@
 let attachedTabId = null;
 
-chrome.action.onClicked.addListener((tab) => {
-  if (attachedTabId === tab.id) {
-    detachDebugger(tab.id);
-  } else {
-    attachDebugger(tab.id);
+// Listen for messages from popup
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'TOGGLE_DEBUGGER') {
+    if (attachedTabId === message.tabId) {
+      detachDebugger(message.tabId);
+    } else {
+      attachDebugger(message.tabId);
+    }
   }
 });
 
