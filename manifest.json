@@ -5,6 +5,7 @@
   "description": "A Chrome extension to inspect response bodies using the debugger API",
   "permissions": [
     "debugger",
+    "tabs",
     "activeTab"
   ],
   "host_permissions": [
@@ -23,6 +24,7 @@
   },
   "content_scripts": [{
     "matches": ["https://*.courtreserve.com/*"],
-    "js": ["content.js"]
+    "js": ["content.js"],
+    "run_at": "document_end"
   }]
 }

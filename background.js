@@ -53,24 +53,25 @@ function onEvent(debuggeeId, message, params) {
         console.error(chrome.runtime.lastError);
         return;
       }
-      console.log("URL:", params.response.url);
-      // console.log("Response Body:", response.body);
       const results = parseResponseBody(response.body);
-      console.log("Results:", results);
+      console.log('results', results);
 
         // After parsing, send to content script
-        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-          if (tabs[0]) {
-            chrome.tabs.sendMessage(tabs[0].id, {
-              type: 'UPDATE_PAGE',
-              data: parsedResult
-            }, (response) => {
-              if (chrome.runtime.lastError) {
-                console.error(chrome.runtime.lastError);
-              }
-            });
-          }
-        });
+      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        if (tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'UPDATE_PAGE',
+            data: results
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error(chrome.runtime.lastError);
+            }
+            return true;
+          });
+        }
+
+        return true;
+      });
     }
   );
 }
