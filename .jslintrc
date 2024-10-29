@@ -1,0 +1,11 @@
+{
+  "browser": true,
+  "devel": true,
+  "indent": 2,
+  "maxlen": 80,
+  "node": true,
+  "nomen": true,
+  "plusplus": true,
+  "regexp": true,
+  "white": true
+}
