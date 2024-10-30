@@ -19,57 +19,56 @@ chrome.tabs.onRemoved.addListener(function (tabId) {
   }
 });
 
-function attachDebugger(tabId) {
-  chrome.debugger.attach({tabId: tabId}, "1.0", () => {
+function attachDebugger (tabId) {
+  chrome.debugger.attach({tabId: tabId}, '1.0', () => {
     if (chrome.runtime.lastError) {
       console.error(chrome.runtime.lastError);
       return;
     }
-    console.log("Debugger attached");
+    console.log('Debugger attached');
     attachedTabId = tabId;
-    chrome.debugger.sendCommand({tabId: tabId}, "Network.enable");
+    chrome.debugger.sendCommand(
+      {tabId: tabId},
+      'Network.enable',
+      {maxResourceBufferSize: 10000000, maxTotalBufferSize: 20000000},
+    );
     chrome.debugger.onEvent.addListener(onEvent);
   });
 }
 
-function detachDebugger(tabId) {
+function detachDebugger (tabId) {
   chrome.debugger.detach({tabId: tabId}, () => {
     if (chrome.runtime.lastError) {
       console.error(chrome.runtime.lastError);
       return;
     }
-    console.log("Debugger detached");
+    console.log('Debugger detached');
     attachedTabId = null;
     chrome.debugger.onEvent.removeListener(onEvent);
   });
 }
 
-function onEvent(debuggeeId, message, params) {
+function onEvent (debuggeeId, message, params) {
   if (
-    message !== "Network.responseReceived" ||
+    message !== 'Network.responseReceived' ||
     // Check if the URL matches exactly -- 12465 appears to be the Goldman Tennis Center location ID
-    params.response.url !== "https://app.courtreserve.com/Online/Reservations/ReadConsolidated/12465"
+    params.response.url !== 'https://app.courtreserve.com/Online/Reservations/ReadConsolidated/12465'
   ) {
     return;
   }
-  chrome.debugger.sendCommand(
-    {tabId: debuggeeId.tabId},
-    "Network.getResponseBody",
-    {requestId: params.requestId},
-    (response) => {
-      if (chrome.runtime.lastError) {
-        console.error(chrome.runtime.lastError);
-        return;
-      }
+
+
+  getResponseBodyWithRetry(debuggeeId, params.requestId)
+    .then(response => {
       const results = parseResponseBody(response.body);
 
-        // After parsing, send to content script
-      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      // After parsing, send to content script
+      chrome.tabs.query({active: true, currentWindow: true}, function (tabs) {
         if (tabs[0]) {
           chrome.tabs.sendMessage(tabs[0].id, {
             type: 'UPDATE_PAGE',
             data: results
-          }, (response) => {
+          }, () => {
             if (chrome.runtime.lastError) {
               console.error(chrome.runtime.lastError);
             }
@@ -79,8 +78,11 @@ function onEvent(debuggeeId, message, params) {
 
         return true;
       });
-    }
-  );
+
+    })
+    .catch(error => {
+      console.warn(`Failed to get response after retries for ${params.requestId}:`, error);
+    });
 }
 
 /**
@@ -90,7 +92,7 @@ function onEvent(debuggeeId, message, params) {
  * overlap. If they do, the duration is the difference between the start of the first and end of the last.
  * Note that three or more adjacent objects can have overlapping AvailableCourtIds, in which case the
  * duration is the difference between the start of the first and end of the last, capped at 90.
- * 
+ *
  * {
  *   "Data": [
  *     {
@@ -145,45 +147,45 @@ function onEvent(debuggeeId, message, params) {
  *     }
  *   ]
  * }
- * 
- * @param {*} body 
+ *
+ * @param {*} body
  */
-function parseResponseBody(body) {
-    const data = JSON.parse(body);
-    if (!data || !Array.isArray(data.Data)) {
-        return null;
-    }
+function parseResponseBody (body) {
+  const data = JSON.parse(body);
+  if (!data || !Array.isArray(data.Data)) {
+    return null;
+  }
 
-    const results = [];
-    const availabilitiesByCourtIds = {};
-    for (const slot of data.Data.reverse()) {
-        let maxDuration = 0;
-        const slotStartResult = slot.Start.match(/[0-9]+/);
-        if (!slotStartResult) {
-            continue;
-        }
-        const slotStartCleaned = +slotStartResult[0];
-        for (const courtId of slot.AvailableCourtIds) {
-            if (!availabilitiesByCourtIds[courtId]) {
-                availabilitiesByCourtIds[courtId] = {};
-            }
-            const duration = getAvailableDurationFromStartTime(
-                availabilitiesByCourtIds[courtId], 
-                slotStartCleaned,
-            );
-            availabilitiesByCourtIds[courtId][slotStartCleaned] = duration;
-            maxDuration = Math.max(maxDuration, duration);
-        }
-        results.push({
-            StartTime: new Date(slotStartCleaned),
-            AvailabilityDuration: maxDuration,
-        });
+  const results = [];
+  const availabilitiesByCourtIds = {};
+  for (const slot of data.Data.reverse()) {
+    let maxDuration = 0;
+    const slotStartResult = slot.Start.match(/[0-9]+/);
+    if (!slotStartResult) {
+      continue;
     }
+    const slotStartCleaned = +slotStartResult[0];
+    for (const courtId of slot.AvailableCourtIds) {
+      if (!availabilitiesByCourtIds[courtId]) {
+        availabilitiesByCourtIds[courtId] = {};
+      }
+      const duration = getAvailableDurationFromStartTime(
+        availabilitiesByCourtIds[courtId],
+        slotStartCleaned,
+      );
+      availabilitiesByCourtIds[courtId][slotStartCleaned] = duration;
+      maxDuration = Math.max(maxDuration, duration);
+    }
+    results.push({
+      StartTime: new Date(slotStartCleaned),
+      AvailabilityDuration: maxDuration,
+    });
+  }
 
-    return results;
+  return results;
 }
 
-function getAvailableDurationFromStartTime(availabilitiesForCourtId, startTime) {
+function getAvailableDurationFromStartTime (availabilitiesForCourtId, startTime) {
   let duration = 30;
   // If availabilitiesForCourtId[startTime - 30 minutes] is available, set duration to 60;
   // if availabilitiesForCourtId[startTime - 60 minutes] is ALSO available, set duration to 90
@@ -199,3 +201,29 @@ function getAvailableDurationFromStartTime(availabilitiesForCourtId, startTime) 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Chrome extension installed!');
 });
+
+function getResponseBodyWithRetry (debuggeeId, requestId, retries = 3, delay = 100) {
+  return new Promise((resolve, reject) => {
+    const attempt = (attemptsLeft) => {
+      chrome.debugger.sendCommand(
+        {tabId: debuggeeId.tabId},
+        'Network.getResponseBody',
+        {requestId: requestId},
+        (response) => {
+          if (chrome.runtime.lastError) {
+            if (attemptsLeft > 0) {
+              console.log(`Retry attempt for request ${requestId}, ${attemptsLeft} attempts left`);
+              setTimeout(() => attempt(attemptsLeft - 1), delay);
+              return;
+            }
+            reject(chrome.runtime.lastError);
+            return;
+          }
+          resolve(response);
+        }
+      );
+    };
+
+    attempt(retries);
+  });
+}
