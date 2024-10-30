@@ -11,9 +11,6 @@
   "host_permissions": [
     "https://*.courtreserve.com/*"
   ],
-  "action": {
-    "default_popup": "popup.html"
-  },
   "background": {
     "service_worker": "background.js"
   },

@@ -1,13 +1,21 @@
 let attachedTabId = null;
 
-// Listen for messages from popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'TOGGLE_DEBUGGER') {
-    if (attachedTabId === message.tabId) {
-      detachDebugger(message.tabId);
-    } else {
-      attachDebugger(message.tabId);
-    }
+// Add tab update and removal listeners
+chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+  if (changeInfo.status === 'complete' &&
+      tab.url &&
+      tab.url.includes('app.courtreserve.com/Online/Reservations')) {
+    attachDebugger(tabId);
+  } else if (changeInfo.status === 'complete' &&
+             attachedTabId === tabId) {
+    // Detach if navigating away from Court Reserve
+    detachDebugger(tabId);
+  }
+});
+
+chrome.tabs.onRemoved.addListener(function (tabId) {
+  if (attachedTabId === tabId) {
+    detachDebugger(tabId);
   }
 });
 
@@ -54,7 +62,6 @@ function onEvent(debuggeeId, message, params) {
         return;
       }
       const results = parseResponseBody(response.body);
-      console.log('results', results);
 
         // After parsing, send to content script
       chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
@@ -157,7 +164,6 @@ function parseResponseBody(body) {
         }
         const slotStartCleaned = +slotStartResult[0];
         for (const courtId of slot.AvailableCourtIds) {
-            console.log('availabilitiesByCourtIds', availabilitiesByCourtIds);
             if (!availabilitiesByCourtIds[courtId]) {
                 availabilitiesByCourtIds[courtId] = {};
             }
@@ -182,10 +188,8 @@ function getAvailableDurationFromStartTime(availabilitiesForCourtId, startTime) 
   // If availabilitiesForCourtId[startTime - 30 minutes] is available, set duration to 60;
   // if availabilitiesForCourtId[startTime - 60 minutes] is ALSO available, set duration to 90
   if (availabilitiesForCourtId[startTime + 30 * 60 * 1000]) {
-    console.log(60);
     duration = 60;
     if (availabilitiesForCourtId[startTime + 90 * 60 * 1000]) {
-      console.log(90);
       duration = 90;
     }
   }
