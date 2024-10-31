@@ -8,11 +8,13 @@
     "tabs",
     "activeTab"
   ],
+  "action": {},
   "host_permissions": [
     "https://*.courtreserve.com/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "icons": {
     "16": "assets/icon16.png",

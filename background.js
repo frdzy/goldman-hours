@@ -227,3 +227,10 @@ function getResponseBodyWithRetry (debuggeeId, requestId, retries = 3, delay = 1
     attempt(retries);
   });
 }
+
+// Add this near the other chrome.runtime listeners
+chrome.action.onClicked.addListener((tab) => {
+  chrome.tabs.create({
+    url: 'https://app.courtreserve.com/Online/Reservations/Bookings/12465?sId=16819'
+  });
+});

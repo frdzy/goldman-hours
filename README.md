@@ -30,7 +30,7 @@ To modify or contribute to this extension:
 
 1. Clone the repository
 2. Make your changes
-3. Test locally by loading the unpacke 
+3. Test locally by loading the unpacked extension in Chrome
 
 ## Credits
 
