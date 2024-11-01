@@ -20,6 +20,9 @@ chrome.tabs.onRemoved.addListener(function (tabId) {
 });
 
 function attachDebugger (tabId) {
+  if (attachedTabId === tabId) {
+    return;
+  }
   chrome.debugger.attach({tabId: tabId}, '1.0', () => {
     if (chrome.runtime.lastError) {
       console.error(chrome.runtime.lastError);
@@ -232,5 +235,7 @@ function getResponseBodyWithRetry (debuggeeId, requestId, retries = 3, delay = 1
 chrome.action.onClicked.addListener((tab) => {
   chrome.tabs.create({
     url: 'https://app.courtreserve.com/Online/Reservations/Bookings/12465?sId=16819'
+  }, (newTab) => {
+    attachDebugger(newTab.id);
   });
 });
